@@ -22,19 +22,28 @@ function type() {
 }
 type();
 
-/* ── Footer year ──────────────────────────────────────────────────────── */
-document.getElementById('year').textContent = new Date().getFullYear();
+/* ── Footer year (no-op if footer removed) ────────────────────────────── */
+const yearEl = document.getElementById('year');
+if (yearEl) yearEl.textContent = new Date().getFullYear();
 
-/* ── Navbar scroll shadow + active link ───────────────────────────────── */
-const navbar = document.getElementById('navbar');
+/* ── Mobile nav toggle ────────────────────────────────────────────────── */
+const navToggle = document.getElementById('navToggle');
+const navLinksEl = document.getElementById('navLinks');
 const navLinks = document.querySelectorAll('.nav-link');
+
+navToggle.addEventListener('click', () => navLinksEl.classList.toggle('open'));
+navLinks.forEach(link => link.addEventListener('click', () => navLinksEl.classList.remove('open')));
+
+/* ── Scroll-to-top button ─────────────────────────────────────────────── */
+const scrollTopBtn = document.getElementById('scrollTop');
+scrollTopBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+/* ── Navbar active link + scroll-to-top visibility ───────────────────── */
 const sections = document.querySelectorAll('section[id]');
 
 window.addEventListener('scroll', () => {
-  // Scroll-to-top button
   scrollTopBtn.classList.toggle('visible', window.scrollY > 300);
 
-  // Active nav link
   let current = '';
   sections.forEach(sec => {
     if (window.scrollY >= sec.offsetTop - 120) current = sec.id;
@@ -44,51 +53,42 @@ window.addEventListener('scroll', () => {
   });
 });
 
-/* ── Mobile nav toggle ────────────────────────────────────────────────── */
-const navToggle = document.getElementById('navToggle');
-const navLinksEl = document.getElementById('navLinks');
-
-navToggle.addEventListener('click', () => {
-  navLinksEl.classList.toggle('open');
+/* ── STEP 1: Add fade-in class to section children FIRST ─────────────── */
+document.querySelectorAll('.section .container > *').forEach((el, i) => {
+  // Skip elements that already have their own animation classes
+  if (
+    el.classList.contains('section-title') ||
+    el.classList.contains('section-sub') ||
+    el.classList.contains('fade-in') ||
+    el.classList.contains('timeline') ||
+    el.classList.contains('projects-grid') ||
+    el.classList.contains('skills-grid') ||
+    el.classList.contains('contact-grid') ||
+    el.classList.contains('about-grid')
+  ) return;
+  el.classList.add('fade-in');
+  el.style.transitionDelay = `${i * 0.05}s`;
 });
-navLinks.forEach(link => {
-  link.addEventListener('click', () => navLinksEl.classList.remove('open'));
-});
 
-/* ── Scroll-to-top button ─────────────────────────────────────────────── */
-const scrollTopBtn = document.getElementById('scrollTop');
-scrollTopBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
-
-/* ── IntersectionObserver for animations ──────────────────────────────── */
+/* ── STEP 2: Set up IntersectionObserver AFTER classes are assigned ───── */
 const observer = new IntersectionObserver((entries) => {
   entries.forEach(entry => {
-    if (entry.isIntersecting) {
-      entry.target.classList.add('visible');
-      // Animate skill bars when they become visible
-      if (entry.target.classList.contains('skill-bar')) {
-        const fill = entry.target.querySelector('.skill-fill');
-        const level = entry.target.dataset.level;
-        fill.style.width = level + '%';
-      }
+    if (!entry.isIntersecting) return;
+    entry.target.classList.add('visible');
+    // Animate skill bar fills
+    if (entry.target.classList.contains('skill-bar')) {
+      const fill = entry.target.querySelector('.skill-fill');
+      if (fill) fill.style.width = (entry.target.dataset.level || 0) + '%';
     }
   });
-}, { threshold: 0.15 });
+}, { threshold: 0, rootMargin: '0px 0px -40px 0px' });
 
-// Observe fade-in elements
-document.querySelectorAll('.fade-in, .timeline-item, .project-card').forEach(el => observer.observe(el));
+// Observe every animated element
+document.querySelectorAll(
+  '.fade-in, .timeline-item, .project-card, .about-grid, .skills-grid, .contact-grid, .skill-bar'
+).forEach(el => observer.observe(el));
 
-// Observe skill bars
-document.querySelectorAll('.skill-bar').forEach(el => observer.observe(el));
-
-/* ── Section fade-in: attach class to section children ───────────────── */
-document.querySelectorAll('.section .container > *:not(.section-title):not(.section-sub)').forEach((el, i) => {
-  if (!el.classList.contains('fade-in')) {
-    el.classList.add('fade-in');
-    el.style.transitionDelay = `${i * 0.05}s`;
-  }
-});
-
-/* ── Project card modal ───────────────────────────────────────────────── */
+/* ── Project card modals ──────────────────────────────────────────────── */
 function openModal(id) {
   const modal = document.getElementById(id);
   if (modal) { modal.classList.add('open'); document.body.style.overflow = 'hidden'; }
@@ -98,34 +98,25 @@ function closeModal(modal) {
   document.body.style.overflow = '';
 }
 
-// Open via card click or btn-link
 document.querySelectorAll('.project-card, .btn-link').forEach(el => {
   el.addEventListener('click', (e) => {
-    // Don't open modal if clicking the GitHub icon link
     if (e.target.closest('.icon-link')) return;
     const id = el.dataset.modal || el.closest('[data-modal]')?.dataset.modal;
     if (id) openModal(id);
   });
 });
 
-// Close via backdrop click or close button
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) closeModal(overlay);
-  });
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(overlay); });
 });
 document.querySelectorAll('.modal-close').forEach(btn => {
   btn.addEventListener('click', () => closeModal(btn.closest('.modal-overlay')));
 });
-
-// Close on Escape
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    document.querySelectorAll('.modal-overlay.open').forEach(closeModal);
-  }
+  if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(closeModal);
 });
 
-/* ── Contact form (UI only — wire up Formspree to make it real) ───────── */
+/* ── Contact form (UI only) ───────────────────────────────────────────── */
 document.getElementById('contactForm').addEventListener('submit', (e) => {
   e.preventDefault();
   const btn = e.target.querySelector('button[type=submit]');
